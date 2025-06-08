@@ -66,7 +66,7 @@ async def fetch_action_details(pool, acao_id: int):
             return None
 
 
-async def salvar_sentimento_async(pool, acao_id: int, sentimento: str, confianca: float, prob_positivo: float, prob_negativo: float, prob_neutro: float):
+async def salvar_sentimento_async(pool, acao_id: int, sentimento: str):
     """Salva o sentimento no banco de dados de forma assíncrona."""
     async with pool.acquire() as conn:
         async with conn.transaction():
@@ -76,17 +76,14 @@ async def salvar_sentimento_async(pool, acao_id: int, sentimento: str, confianca
                     print(f"Sentimento já existe para acao_id: {acao_id}. Ignorando.")
                     return False
 
-                await conn.execute(
-                    "INSERT INTO cs_sentimentos (acao_id, sentimento, confianca, prob_positivo, prob_negativo, prob_neutro) VALUES ($1, $2, $3, $4, $5, $6);",
-                    acao_id, sentimento, confianca, prob_positivo, prob_negativo, prob_neutro
-                )
+                await conn.execute("INSERT INTO cs_sentimentos (acao_id, sentimento) VALUES ($1, $2);", acao_id, sentimento)
                 print(f"Sentimento salvo para acao_id: {acao_id}")
                 return True
             except asyncpg.UniqueViolationError:
                 print(f"Sentimento já existe para acao_id: {acao_id} (detectado por constraint). Ignorando.")
                 return False
             except Exception as e:
-                print(f"Erro de banco ao salvar sentimento detalhado para acao_id {acao_id}: {e}")
+                print(f"Erro de banco ao salvar sentimento para acao_id {acao_id}: {e}")
                 return False
 
 # --- Lógica de Processamento da Notificação ---
@@ -106,11 +103,7 @@ async def processar_nova_acao(pool, acao_id: int):
 
         if sentimento_result and sentimento_result["sucesso"]:
             sentimento = sentimento_result["sentimento"]
-            confianca = sentimento_result["confianca"]
-            prob_positivo = sentimento_result["probabilidades"]["positivo"]
-            prob_negativo = sentimento_result["probabilidades"]["negativo"]
-            prob_neutro = sentimento_result["probabilidades"]["neutro"]
-            await salvar_sentimento_async(pool, acao_id, sentimento, confianca, prob_positivo, prob_negativo, prob_neutro)
+            await salvar_sentimento_async(pool, acao_id, sentimento)
         else:
             print(f"Análise de sentimento falhou ou vazia para acao_id: {acao_id}. Erro: {sentimento_result.get('erro', 'Desconhecido')}")
     else:
@@ -164,7 +157,7 @@ async def listen_for_actions():
                 except Exception as rem_e:
                     print(f"Erro ao remover listener na reconexão: {rem_e}")
                 await conn.close()
-            conn = None  # Garante que tentaremos uma nova conexão
+            conn = None  # Garante que tentará uma nova conexão
             await asyncio.sleep(10)
         except Exception as e:
             print(
@@ -180,6 +173,7 @@ async def listen_for_actions():
             await asyncio.sleep(10)
 
 # --- Eventos Startup/Shutdown da Aplicação FastAPI ---
+
 
 analisador_sentimentos = None
 
@@ -206,5 +200,4 @@ def read_root():
 
 
 # Lógica iniciada pelo LISTENER
-
 # Para rodar: uvicorn main:app --reload
