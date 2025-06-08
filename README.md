@@ -54,14 +54,3 @@ $$
 Treine o modelo, rodando o script treinarnodelo.py e após isso verifique se o mesmo foi gerado corretamente
 
 
- ### 3 Atualização da tabela cs_sentimentos
-
-Para que os dados da análise de sentimentos sejam armazenados corretamente, a tabela cs_sentimentos precisa de uma pequena aleração. Execute o script para garantir o funcionamento correto
-
- ```sql 
-ALTER TABLE cs_sentimentos
-ADD COLUMN confianca numeric(5,4),
-ADD COLUMN prob_positivo numeric(5,4),
-ADD COLUMN prob_negativo numeric(5,4),
-ADD COLUMN prob_neutro numeric(5,4);
-```
