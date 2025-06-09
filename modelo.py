@@ -15,95 +15,92 @@ class AnalisadorSentimentos:
         self.model.eval()
         
         # Mapeamento de labels
-        self.id2label = {0: 'positivo', 1: 'negativo', 2: 'neutro'}
-        
+        self.id2label = {
+            0: 'Satisfação', 1: 'Frustração', 2: 'Confusão',
+            3: 'Urgência/Pressão', 4: 'Raiva / Irritação', 5: 'Neutralidade'
+        }        
     def analisar(self, texto):
         """
-        Analisa o sentimento de um texto
-
-        
+        Analisa o sentimento de um texto com base em 6 rótulos definidos:
+        'Satisfação', 'Frustração', 'Confusão', 'Urgência/Pressão', 
+        'Raiva / Irritação' e 'Neutralidade'
         """
-        try:
-            # Tokenizar
-            inputs = self.tokenizer(
-                texto,
-                padding=True,
-                truncation=True,
-                max_length=256,
-                return_tensors="pt"
-            ).to(self.device)
-            
-            # Fazer predição
-            with torch.no_grad():
-                outputs = self.model(**inputs)
-                logits = outputs.logits
-                probs = torch.softmax(logits, dim=-1)
-                pred = torch.argmax(logits, dim=-1)
-            
-            # Obter label e confiança
-            label_id = pred.item()
-            confianca = probs[0][label_id].item()
-            
-            return {
-                "texto": texto,
-                "sentimento": self.id2label[label_id],
-                "confianca": round(confianca, 4),
-                "probabilidades": {
-                    "positivo": round(probs[0][0].item(), 4),
-                    "negativo": round(probs[0][1].item(), 4),
-                    "neutro": round(probs[0][2].item(), 4)
-                },
-                "sucesso": True
-            }
-        except Exception as e:
-            return {
-                "erro": str(e),
-                "sucesso": False
-            }
+        # Tokenizar
+        inputs = self.tokenizer(
+            texto,
+            padding=True,
+            truncation=True,
+            max_length=256,
+            return_tensors="pt"
+        ).to(self.device)
+
+        # Fazer predição
+        with torch.no_grad():
+            outputs = self.model(**inputs)
+            logits = outputs.logits
+            probs = torch.softmax(logits, dim=-1)
+            pred = torch.argmax(logits, dim=-1)
+
+        # Obter label e confiança
+        label_id = pred.item()
+        confianca = probs[0][label_id].item()
+
+        # Gerar todas as probabilidades com base nos rótulos
+        probabilidades = {
+            self.id2label[i]: round(probs[0][i].item(), 4)
+            for i in range(len(self.id2label))
+        }
+
+        return {
+            "texto": texto,
+            "sentimento": self.id2label[label_id],
+            "confianca": round(confianca, 4),
+            "probabilidades": probabilidades,
+            "sucesso": True
+        }
+
+
+
 
     def analisar_multiplos(self, textos):
         """
         Analisa múltiplos textos de uma vez (batch processing)
+        com base nos rótulos definidos em id2label.
         """
-        try:
-            # Tokenizar todos os textos
-            inputs = self.tokenizer(
-                textos,
-                padding=True,
-                truncation=True,
-                max_length=256,
-                return_tensors="pt"
-            ).to(self.device)
-            
-            # Fazer predições
-            with torch.no_grad():
-                outputs = self.model(**inputs)
-                logits = outputs.logits
-                probs = torch.softmax(logits, dim=-1)
-                preds = torch.argmax(logits, dim=-1)
-            
-            # Processar resultados
-            resultados = []
-            for i, (texto, pred, prob) in enumerate(zip(textos, preds, probs)):
-                label_id = pred.item()
-                resultados.append({
-                    "texto": texto,
-                    "sentimento": self.id2label[label_id],
-                    "confianca": round(prob[label_id].item(), 4),
-                    "probabilidades": {
-                        "positivo": round(prob[0].item(), 4),
-                        "negativo": round(prob[1].item(), 4),
-                        "neutro": round(prob[2].item(), 4)
-                    }
-                })
-            
-            return {
-                "resultados": resultados,
-                "total_analisado": len(resultados),
-                "sucesso": True
+        # Tokenizar todos os textos
+        inputs = self.tokenizer(
+            textos,
+            padding=True,
+            truncation=True,
+            max_length=256,
+            return_tensors="pt"
+        ).to(self.device)
+
+        # Fazer predições
+        with torch.no_grad():
+            outputs = self.model(**inputs)
+            logits = outputs.logits
+            probs = torch.softmax(logits, dim=-1)
+            preds = torch.argmax(logits, dim=-1)
+
+        # Processar resultados
+        resultados = []
+        for i, (texto, pred, prob) in enumerate(zip(textos, preds, probs)):
+            label_id = pred.item()
+            probabilidades = {
+                self.id2label[j]: round(prob[j].item(), 4)
+                for j in range(len(self.id2label))
             }
-        except Exception as e:
-            return {
-                "erro": str(e),
-                "sucesso": False
-            }
+            resultados.append({
+                "texto": texto,
+                "sentimento": self.id2label[label_id],
+                "confianca": round(prob[label_id].item(), 4),
+                "probabilidades": probabilidades
+            })
+
+        return {
+            "resultados": resultados,
+            "total_analisado": len(resultados),
+            "sucesso": True
+        }
+
