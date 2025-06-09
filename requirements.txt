@@ -1,23 +1,6 @@
-#Core API
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
-
-# Machine Learning
-transformers==4.35.0
-torch>=2.2.0
-
-# APi
-psycopg2-binary==2.9.10
-
-# Database Driver (Asynchronous)
-asyncpg 
-
-# Dependences
-pydantic==2.4.2
-python-multipart==0.0.6
-
-datasets
-scikit-Learn
-pandas
-numpy
-deep-translator
+fastapi
+uvicorn
+transformers
+torch
+pydantic
+python-multipart
