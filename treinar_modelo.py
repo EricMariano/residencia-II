@@ -9,21 +9,32 @@ from deep_translator import GoogleTranslator
 # Carregar o dataset GoEmotions (em inglês)
 dataset = load_dataset("go_emotions")
 
-# Mapeamento das emoções para 3 categorias: positivo, negativo, neutro
-negativos = {2, 3, 6, 9, 10, 11, 12, 14, 16, 19, 24, 25}
-positivos = {0, 1, 4, 5, 8, 13, 15, 17, 18, 20, 21, 23}
-neutros   = {7, 22, 26, 27}
+MAP_6_LABELS = {
+    "Satisfação": {0, 1, 4, 5, 8, 13, 15, 17, 18, 20, 21, 23},  # alegria, aprovação, gratidão, etc.
+    "Frustração": {2, 3, 6, 9, 10, 11, 12, 14, 16, 19, 24, 25}, # desapontamento, tristeza, etc.
+    "Confusão": {7},                                            # confusão
+    "Urgência/Pressão": {22},                                   # urgência
+    "Raiva/Irritação": {26},                                    # raiva
+    "Neutralidade": {27}                                        # neutro
+}
+LABEL2ID = {
+    "Satisfação": 0,
+    "Frustração": 1,
+    "Confusão": 2,
+    "Urgência/Pressão": 3,
+    "Raiva/Irritação": 4,
+    "Neutralidade": 5
+}
+ID2LABEL = {v: k for k, v in LABEL2ID.items()}
 
-def map_emotion(emotions):
+def map_emotion_6(emotions):
     if not emotions:
-        return 2  # neutro por padrão
+        return LABEL2ID["Neutralidade"]
     main_emotion = emotions[0]
-    if main_emotion in positivos:
-        return 0  # positivo
-    elif main_emotion in negativos:
-        return 1  # negativo
-    else:
-        return 2  # neutro
+    for label, indices in MAP_6_LABELS.items():
+        if main_emotion in indices:
+            return LABEL2ID[label]
+    return LABEL2ID["Neutralidade"]
 
 def translate_batch(texts, batch_size=30):
     translated_texts = []
@@ -42,7 +53,7 @@ def translate_batch(texts, batch_size=30):
 def prepare_data(split):
     texts = dataset[split]['text']
     emotions = dataset[split]['labels']
-    labels = [map_emotion(emo) for emo in emotions]
+    labels = [map_emotion_6(emo) for emo in emotions]
     df = pd.DataFrame({'text': texts, 'label': labels})
     max_samples = 500 if split == 'train' else 100
     df = df.sample(min(len(df), max_samples), random_state=42)
@@ -72,10 +83,10 @@ MODEL_NAME = 'neuralmind/bert-base-portuguese-cased'
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 model = AutoModelForSequenceClassification.from_pretrained(
     MODEL_NAME,
-    num_labels=3,
+    num_labels=6,
     problem_type="single_label_classification",
-    id2label={0: 'positivo', 1: 'negativo', 2: 'neutro'},
-    label2id={'positivo': 0, 'negativo': 1, 'neutro': 2}
+    id2label=ID2LABEL,
+    label2id=LABEL2ID
 )
 
 def preprocess_function(examples):
@@ -136,7 +147,7 @@ exemplos = [
 inputs = tokenizer(exemplos, padding=True, truncation=True, return_tensors="pt").to(model.device)
 outputs = model(**inputs)
 preds = torch.argmax(outputs.logits, dim=1)
-rotulos = ["positivo", "negativo", "neutro"]
+rotulos = [ID2LABEL[i] for i in range(6)]
 for texto, pred in zip(exemplos, preds):
     print(f"Texto: {texto}\nSentimento previsto: {rotulos[pred]}\n")
 
